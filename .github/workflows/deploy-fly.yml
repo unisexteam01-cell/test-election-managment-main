@@ -1,0 +1,36 @@
+name: Deploy backend to Fly.io
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    name: Build and Deploy to Fly
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install flyctl
+        uses: superfly/flyctl-actions@v1
+
+      - name: Set Fly and app environment variables
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          echo "Fly CLI available"
+
+      - name: Configure Fly secrets (MONGO_URL, DB_NAME, JWT_SECRET_KEY)
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          # Requires these repository secrets to be set: FLY_APP_NAME, MONGO_URL, DB_NAME, JWT_SECRET_KEY
+          if [ -z "${{ secrets.FLY_APP_NAME }}" ]; then echo "ERROR: set FLY_APP_NAME in repo secrets"; exit 1; fi
+          flyctl secrets set MONGO_URL="${{ secrets.MONGO_URL }}" DB_NAME="${{ secrets.DB_NAME }}" JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" --app "${{ secrets.FLY_APP_NAME }}"
+
+      - name: Deploy to Fly (uses backend/fly.toml)
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl deploy --config backend/fly.toml --app "${{ secrets.FLY_APP_NAME }}" --remote-only

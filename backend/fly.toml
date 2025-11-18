@@ -1,0 +1,13 @@
+app = "election-backend"
+primary_region = "iad"
+
+[build]
+  image = ""
+  [build.docker]
+    dockerfile = "./Dockerfile"
+    context = "."
+
+[env]
+# You can put non-sensitive defaults here. Sensitive values should be configured
+# using Fly secrets or via the GitHub Actions secrets referenced in the workflow.
+DB_NAME = "test-election"

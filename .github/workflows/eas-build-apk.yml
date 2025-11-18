@@ -1,0 +1,72 @@
+name: Build Android APK via EAS
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: |
+          npm ci
+
+      - name: Install eas-cli
+        run: npm install -g eas-cli
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Expo login (token)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then echo "EXPO_TOKEN not set"; exit 1; fi
+          eas login --token "$EXPO_TOKEN"
+
+      - name: Start EAS build (Android) and wait
+        working-directory: frontend
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          # use profile 'preview' or change to 'production' as needed
+          echo "Starting EAS build..."
+          eas build --platform android --profile preview --non-interactive --wait
+
+      - name: Get latest finished build id
+        working-directory: frontend
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          # List most recent finished Android build for this project and extract id
+          builds_json=$(eas build:list --platform android --status finished --limit 1 --json)
+          echo "$builds_json" | jq
+          BUILD_ID=$(echo "$builds_json" | jq -r '.[0].id')
+          if [ -z "$BUILD_ID" ] || [ "$BUILD_ID" = "null" ]; then echo "No finished build found"; exit 1; fi
+          echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
+
+      - name: Download APK artifact
+        working-directory: frontend
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BUILD_ID: ${{ env.BUILD_ID }}
+        run: |
+          echo "Downloading build $BUILD_ID..."
+          eas build:download --platform android --id "$BUILD_ID" --output ../builds/android.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: builds/android.apk

@@ -1,0 +1,12 @@
+# Ignore editor and macOS files that can cause inconsistent casing issues
+.vscode/
+Library/
+Library/**
+**/workspaceStorage/**
+**/chatEditingSessions/**
+**/Library/Application Support/**
+.DS_Store
+npm-debug.log
+yarn-error.log
+node_modules/
+.git/
